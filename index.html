@@ -3,105 +3,119 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Tracking Livraison Réel</title>
-
+<title>Suivi Livraison par Catégorie</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-
 <style>
-body {
-  margin:0;
-  font-family: 'Segoe UI';
-  background: linear-gradient(135deg,#0f172a,#1e3a8a,#9333ea);
-  color:white;
-  text-align:center;
-}
-
-input {
-  padding:12px;
-  border-radius:10px;
-  border:none;
-}
-
-button {
-  padding:12px;
-  border:none;
-  border-radius:10px;
-  background:#22c55e;
-  color:white;
-}
-
-.card {
-  margin:20px auto;
-  padding:15px;
-  width:300px;
-  border-radius:15px;
-  background:rgba(255,255,255,0.1);
-}
-
-#map {
-  height:400px;
-  margin:20px;
-  border-radius:15px;
-}
+body { font-family:'Segoe UI', sans-serif; margin:0; background:#1e3a8a; color:white; text-align:center; }
+h1 { margin-top:20px;}
+button { padding:10px; margin:5px; border-radius:10px; border:none; background:#22c55e; color:white; cursor:pointer; width:90%; text-align:left; }
+.button-category { background:#2563eb; }
+.button-category:hover { background:#3b82f6; }
+#map { height:400px; margin:10px; border-radius:15px;}
+.card { background:rgba(255,255,255,0.1); padding:15px; margin:10px auto; width:90%; border-radius:15px;}
+ul { list-style:none; padding:0; margin:0; max-height:0; overflow:hidden; transition:max-height 0.3s ease; }
+li { background:rgba(255,255,255,0.1); margin:3px; padding:8px; border-radius:8px; cursor:pointer;}
+li:hover { background:rgba(255,255,255,0.2); }
 </style>
 </head>
-
 <body>
 
-<h2>📦 Suivi Livraison</h2>
+<h1>📦 Suivi Livraison</h1>
 
-<input id="code" placeholder="Entrer code">
+<div class="card">
+<b>Votre ID unique :</b> <span id="myID"></span>
+<button onclick="copyID()">📋 Copier</button>
+</div>
+
+<div class="card">
+<b>Liste des utilisateurs :</b>
+<div id="categoryList"></div>
+</div>
+
+<div class="card">
+<input id="trackID" placeholder="Entrer ID à suivre">
 <button onclick="track()">Suivre</button>
+</div>
 
 <div id="info"></div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script>
-const DATA_URL = "https://raw.githubusercontent.com/TON-USER/TON-REPO/main/data.json";
+// Liste des utilisateurs ajoutés manuellement
+const users = [
+  { id: "user-1", category: "moto", lat: 3.848, lng: 11.502 },
+  { id: "user-2", category: "taxi", lat: 3.85, lng: 11.51 },
+  { id: "user-3", category: "restaurant", lat: 3.86, lng: 11.505 },
+  { id: "user-4", category: "moto", lat: 3.847, lng: 11.503 }
+];
 
-let map = L.map('map').setView([3.848, 11.502], 6);
+// ID unique utilisateur
+if(!localStorage.getItem("myID")){
+  localStorage.setItem("myID",'user-'+Math.random().toString(16).slice(2,10));
+}
+let myID = localStorage.getItem("myID");
+document.getElementById("myID").innerText = myID;
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
-.addTo(map);
+// Copier ID
+function copyID(){ navigator.clipboard.writeText(myID).then(()=>alert("ID copié ! Partagez-le")); }
 
-let marker;
+// Carte
+let map = L.map('map').setView([3.848,11.502],6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+let marker; // marqueur suivi
 
-async function track() {
-  const code = document.getElementById("code").value.toUpperCase();
+// Générer liste collapsible
+const categoryList = document.getElementById("categoryList");
+const categories = [...new Set(users.map(u=>u.category))];
 
-  const res = await fetch(DATA_URL + "?t=" + Date.now());
-  const data = await res.json();
+categories.forEach(cat=>{
+  const btn = document.createElement("button");
+  btn.textContent = cat.toUpperCase();
+  btn.className = "button-category";
+  const ul = document.createElement("ul");
+  
+  users.filter(u=>u.category===cat).forEach(u=>{
+    const li = document.createElement("li");
+    li.textContent = u.id;
+    li.onclick = ()=>document.getElementById("trackID").value = u.id;
+    ul.appendChild(li);
+  });
+  
+  btn.onclick = ()=> {
+    if(ul.style.maxHeight && ul.style.maxHeight !== "0px"){ ul.style.maxHeight="0"; }
+    else { ul.style.maxHeight = ul.scrollHeight + "px"; }
+  };
+  
+  categoryList.appendChild(btn);
+  categoryList.appendChild(ul);
+});
 
-  const d = data[code];
+// Suivi par ID
+function track(){
+  const code = document.getElementById("trackID").value;
+  const u = users.find(x=>x.id===code);
+  if(!u){ info.innerHTML="❌ ID introuvable"; return; }
 
-  if (!d) {
-    info.innerHTML = "❌ Code introuvable";
-    return;
-  }
-
-  info.innerHTML = `
-  <div class="card">
-    👤 ${d.client}<br>
-    📦 ${d.status}<br>
-    ⏱ ${d.updated}
+  info.innerHTML = `<div class="card">
+    📦 ID: ${u.id}<br>
+    📍 Position: ${u.lat.toFixed(5)}, ${u.lng.toFixed(5)}<br>
+    🔹 Catégorie: ${u.category}
   </div>`;
 
-  if (marker) map.removeLayer(marker);
+  // Supprimer ancien marqueur
+  if(marker) map.removeLayer(marker);
 
-  marker = L.marker([d.lat, d.lng]).addTo(map);
+  // Créer un marqueur coloré pour bien indiquer la position
+  marker = L.circleMarker([u.lat,u.lng], {
+    radius: 12,
+    color: '#ff0000',
+    fillColor: '#ff4d4d',
+    fillOpacity: 0.7
+  }).addTo(map).bindPopup(`ID: ${u.id}`).openPopup();
 
-  map.setView([d.lat, d.lng], 13);
+  map.setView([u.lat,u.lng],13);
 }
-
-// 🔄 refresh automatique (temps réel simulé via GitHub update)
-setInterval(() => {
-  if(document.getElementById("code").value){
-    track();
-  }
-}, 5000);
 </script>
 
 </body>

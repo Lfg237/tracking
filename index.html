@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Tracking Livraison Réel</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+body {
+  margin:0;
+  font-family: 'Segoe UI';
+  background: linear-gradient(135deg,#0f172a,#1e3a8a,#9333ea);
+  color:white;
+  text-align:center;
+}
+
+input {
+  padding:12px;
+  border-radius:10px;
+  border:none;
+}
+
+button {
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:#22c55e;
+  color:white;
+}
+
+.card {
+  margin:20px auto;
+  padding:15px;
+  width:300px;
+  border-radius:15px;
+  background:rgba(255,255,255,0.1);
+}
+
+#map {
+  height:400px;
+  margin:20px;
+  border-radius:15px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📦 Suivi Livraison</h2>
+
+<input id="code" placeholder="Entrer code">
+<button onclick="track()">Suivre</button>
+
+<div id="info"></div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+const DATA_URL = "https://raw.githubusercontent.com/TON-USER/TON-REPO/main/data.json";
+
+let map = L.map('map').setView([3.848, 11.502], 6);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+.addTo(map);
+
+let marker;
+
+async function track() {
+  const code = document.getElementById("code").value.toUpperCase();
+
+  const res = await fetch(DATA_URL + "?t=" + Date.now());
+  const data = await res.json();
+
+  const d = data[code];
+
+  if (!d) {
+    info.innerHTML = "❌ Code introuvable";
+    return;
+  }
+
+  info.innerHTML = `
+  <div class="card">
+    👤 ${d.client}<br>
+    📦 ${d.status}<br>
+    ⏱ ${d.updated}
+  </div>`;
+
+  if (marker) map.removeLayer(marker);
+
+  marker = L.marker([d.lat, d.lng]).addTo(map);
+
+  map.setView([d.lat, d.lng], 13);
+}
+
+// 🔄 refresh automatique (temps réel simulé via GitHub update)
+setInterval(() => {
+  if(document.getElementById("code").value){
+    track();
+  }
+}, 5000);
+</script>
+
+</body>
+</html>
